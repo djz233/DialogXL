@@ -7,6 +7,7 @@ import numpy as np
 import argparse
 import random
 from  transformers import BertTokenizer, TransfoXLTokenizer, XLNetTokenizer
+from conceptnet import *
 
 def load_vocab(dataset_name):
     speaker_vocab = pickle.load(open('../data/%s/speaker_vocab.pkl' % (dataset_name), 'rb'))
@@ -145,15 +146,29 @@ class IEMOCAPDataset_xlnet(Dataset):
         content_lengths = [] # list, length for each utterace in each segment
         speaker_ids = []
         indecies = []
-
+        content = []
+        ret_sent_list = []
+        word_map_list = [] # list, (num of utt, bsz, ulen)
+        #out = open("raw.txt", 'r', encoding="utf-8") #1
+        # 第n句话 * 每个对话内的第n句
         for i in range(max_dialog_len):
             ids = []
             lbs = []
             mask = []
             speaker = []
+            context = []
             for d in data:
                 if i < len(d):
+                    #print(d[i]['text']) #1
+                    line = tokenizer.tokenize(d[i]['text']) #1
+                    context.append(line)
+                    #out.write(' '.join(line)) #1
+                    #out.write('\n') #1
                     token_ids = tokenizer.convert_tokens_to_ids(['<cls>'] + tokenizer.tokenize(d[i]['text']))
+                    t_ids = [str(x) for x in token_ids] #1
+                    #print(token_ids, type(token_ids))
+                    #out.write(" ".join(t_ids)) #1
+                    #out.write('\n')
                     m = [1 for i in range(len(token_ids))]
                     ids.append(token_ids)
                     mask.append(m)
@@ -164,12 +179,15 @@ class IEMOCAPDataset_xlnet(Dataset):
                     mask.append([1])
                     lbs.append(-1)
                     speaker.append(0)
+                    context.append([])
+            
             content_ids.append(ids)
             labels.append(lbs)
             content_mask.append(mask)
             speaker_ids.append(speaker)
             indecies.append(i)
-
+            content.append(context)
+        
         for i in range(max_dialog_len):
             lens = []
             max_sent_len = min(max([len(x) for x in content_ids[i]]), self.args.max_sent_len)
@@ -180,6 +198,7 @@ class IEMOCAPDataset_xlnet(Dataset):
                     lens.append(max_sent_len)
                     content_ids[i][j] = content_ids[i][j][:max_sent_len]
                     content_mask[i][j] = content_mask[i][j][:max_sent_len]
+                    content[i][j] = content[i][j][:max_sent_len]
                 else:
                     lens.append(len(content_ids[i][j]))
                     content_ids[i][j] += [5] * (max_sent_len - len(content_ids[i][j]))
@@ -187,8 +206,12 @@ class IEMOCAPDataset_xlnet(Dataset):
             content_lengths.append(lens)
                 # print(len(content_mask[i][j]))
             # print('\n')
+            _r, _w = word_segment_map(content[i])
+            word_map_list.append(_w)
+            ret_sent_list.append(_r)
 
-        # exit()
+        #mmm(content[0], ret_sent_list, word_map_list)
+        import pdb; pdb.set_trace()
 
         return content_ids, labels, content_mask, content_lengths, speaker_ids, indecies
 
