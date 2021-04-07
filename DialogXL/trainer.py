@@ -49,7 +49,7 @@ def train_or_eval_model_for_transfo_xl(model, loss_function, dataloader, epoch, 
             #     exit()
 
             # text_ids, text_feature, speaker_ids, labels, umask = [d.cuda() for d in data] if cuda else data
-            content_ids, label, content_mask, content_lengths, speaker_ids,_ = data
+            content_ids, label, content_mask, content_lengths, speaker_ids, _, conceptnet_score = data
             # print(content_ids.size())
             # print(label.size())
             # print(content_mask.size())
@@ -63,13 +63,14 @@ def train_or_eval_model_for_transfo_xl(model, loss_function, dataloader, epoch, 
                 speaker_ids = speaker_ids.cuda()
                 content_lengths = content_lengths.cuda()
                 label = label.cuda()
+                conceptnet_score = conceptnet_score.cuda()
 
             if args.basemodel == 'transfo_xl':
                 logits, mems = model(content_ids, mems, content_mask)
             elif args.basemodel in ['xlnet_dialog', 'xlnet']:
                 logits, mems, speaker_mask, window_mask = model(content_ids = content_ids, mems = mems, content_mask = content_mask,
                                                    content_lengths = content_lengths, speaker_ids = speaker_ids,
-                                                   speaker_mask = speaker_mask, window_mask = window_mask)
+                                                   speaker_mask = speaker_mask, window_mask = window_mask, conceptnet_score = conceptnet_score)
 
             loss = loss_function(logits, label)
             # print(speaker_mask.detach().cpu().numpy())

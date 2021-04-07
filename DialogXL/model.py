@@ -111,9 +111,9 @@ class ERC_xlnet(nn.Module):
             layers += [nn.Linear(args.hidden_dim, args.hidden_dim), nn.ReLU()]
         layers += [nn.Linear(args.hidden_dim, num_class)]
 
-        self.out_mlp = nn.Sequential(*layers)
+        self.out_mlp = nn.Sequential(*layers) # 函数的形参是定长参数， *表示解引用
 
-    def forward(self, content_ids, mems, content_mask, content_lengths, speaker_ids, speaker_mask, window_mask ):
+    def forward(self, content_ids, mems, content_mask, content_lengths, speaker_ids, speaker_mask, window_mask, conceptnet_score ):
         '''
 
         :param content_ids: (B, L)
@@ -134,7 +134,7 @@ class ERC_xlnet(nn.Module):
         elif self.args.basemodel == 'xlnet_dialog':
             text_feature, new_mems, speaker_mask, window_mask = self.xlnet(input_ids=content_ids, mems=mems, content_lengths = content_lengths,
                                                 speaker_ids = speaker_ids, content_mask = content_mask, speaker_mask = speaker_mask,
-                                                window_mask = window_mask, windowp = self.args.windowp, num_heads = self.args.num_heads)[:4]  # (B, L, D), tuple
+                                                window_mask = window_mask, windowp = self.args.windowp, num_heads = self.args.num_heads, conceptnet_score = conceptnet_score)[:4]  # (B, L, D), tuple
         # print('tex_feature', text_feature.size())
         if self.use_cls:
             text_out = self.pool_fc(text_feature[:,0,:]) # (B, D)
