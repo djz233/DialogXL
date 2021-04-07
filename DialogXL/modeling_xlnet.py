@@ -26,7 +26,7 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 from torch.nn import functional as F
 
-from transformers.activations import gelu_new, silu
+from transformers.activations import gelu_new, swish
 from transformers import XLNetConfig
 from file_utils import (
     ModelOutput,
@@ -195,7 +195,7 @@ def load_tf_weights_in_xlnet(model, config, tf_path):
     return model
 
 
-ACT2FN = {"gelu": gelu_new, "relu": torch.nn.functional.relu, "swish": silu}
+ACT2FN = {"gelu": gelu_new, "relu": torch.nn.functional.relu, "swish": swish}
 
 
 XLNetLayerNorm = nn.LayerNorm
@@ -271,7 +271,9 @@ class XLNetRelativeAttention(nn.Module):
         attn_mask=None,
         head_mask=None,
         output_attentions=False,
+        conceptnet_score=None,
     ):
+        print("Getting into XLNetRelativeAttention.rel_attn_core()")
         """Core relative positional attention operations."""
         # q_head (qlen, B, H, d_h)
         # k_head_h (klen, B, H, d_h)
@@ -293,6 +295,11 @@ class XLNetRelativeAttention(nn.Module):
 
         # merge attention scores and perform masking
         attn_score = (ac + bd + ef) * self.scale # (B, H, qlen, klen)
+        import pdb; pdb.set_trace()
+        if conceptnet_score is not None:
+            conceptnet_score = torch.unsqueeze(conceptnet_score, 1)
+            conceptnet_score = conceptnet_score.expand(conceptnet_score.size()[0], self.n_head, conceptnet_score.size()[2], conceptnet_score.size()[3])
+            attn_score = attn_score * conceptnet_score
         # attn_mask: (qlen, klen, 1, 1) broadcast to (qlen, klen, B, H)
         if attn_mask is not None:
             # attn_score = attn_score * (1 - attn_mask) - 1e30 * attn_mask
@@ -346,7 +353,10 @@ class XLNetRelativeAttention(nn.Module):
         target_mapping=None,
         head_mask=None,
         output_attentions=False,
-    ):
+        conceptnet_score=None,
+    ):  
+        print("getting ito XLNetRelativeAttention.forward()")
+        #import pdb; pdb.set_trace()
         if g is not None:
             # Two-stream attention with relative positional encoding.
             # content based attention score
@@ -378,6 +388,7 @@ class XLNetRelativeAttention(nn.Module):
                 attn_mask=attn_mask_h,
                 head_mask=head_mask,
                 output_attentions=output_attentions,
+                conceptnet_score=conceptnet_score,
             )
 
             if output_attentions:
@@ -402,6 +413,7 @@ class XLNetRelativeAttention(nn.Module):
                     attn_mask=attn_mask_g,
                     head_mask=head_mask,
                     output_attentions=output_attentions,
+                    conceptnet_score=conceptnet_score,
                 )
 
                 if output_attentions:
@@ -418,6 +430,7 @@ class XLNetRelativeAttention(nn.Module):
                     attn_mask=attn_mask_g,
                     head_mask=head_mask,
                     output_attentions=output_attentions,
+                    conceptnet_score=conceptnet_score,
                 )
 
                 if output_attentions:
@@ -458,6 +471,7 @@ class XLNetRelativeAttention(nn.Module):
                 attn_mask=attn_mask_h,
                 head_mask=head_mask,
                 output_attentions=output_attentions,
+                conceptnet_score=conceptnet_score
             ) # (qlen, B, H, h_d)
 
             if output_attentions:
@@ -516,7 +530,10 @@ class XLNetLayer(nn.Module):
         target_mapping=None,
         head_mask=None,
         output_attentions=False,
+        conceptnet_score=None,
     ):
+        #import pdb; pdb.set_trace()
+        print("in xlnetLayer.forward(), before rel_attn.forward()")
         outputs = self.rel_attn(
             output_h,
             output_g,
@@ -528,9 +545,10 @@ class XLNetLayer(nn.Module):
             target_mapping=target_mapping,
             head_mask=head_mask,
             output_attentions=output_attentions,
+            conceptnet_score=conceptnet_score
         )
         output_h, output_g = outputs[:2]
-
+        print("in xlnetLayer.forward(), after rel_attn.forward()")
         if output_g is not None:
             output_g = self.ff(output_g)
         output_h = self.ff(output_h)
@@ -700,7 +718,7 @@ class XLNetModel_dialog(XLNetPreTrainedModel_dialog):
 
         self.word_embedding = nn.Embedding(config.vocab_size, config.d_model)
         self.mask_emb = nn.Parameter(torch.FloatTensor(1, 1, config.d_model))
-        self.layer = nn.ModuleList([XLNetLayer(config) for _ in range(config.n_layer)])
+        self.layer = nn.ModuleList([XLNetLayer(config) for _ in range(config.n_layer)]) #具体放n_layer层的xlnet
         self.dropout = nn.Dropout(config.dropout)
 
         self.init_weights()
@@ -984,8 +1002,10 @@ class XLNetModel_dialog(XLNetPreTrainedModel_dialog):
         output_hidden_states=None,
         return_tuple=None,
         windowp = None,
-        num_heads = None
+        num_heads = None,
+        conceptnet_score = None
     ):
+        
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -1129,14 +1149,14 @@ class XLNetModel_dialog(XLNetPreTrainedModel_dialog):
 
         new_speaker_mask = self.cache_speaker_mask(speaker_mask, speaker_ids, content_lengths, content_mask)
         new_window_mask = self.cache_window_mask(window_mask, windowp, content_lengths, content_mask)
-
+        #import pdb; pdb.set_trace()
         for i, layer_module in enumerate(self.layer):
             if self.mem_len is not None and self.mem_len > 0 and use_cache is True:
                 # cache new mems
                 new_mems = new_mems + (self.cache_mem(output_h, mems[i], content_lengths),)
             if output_hidden_states:
                 hidden_states.append((output_h, output_g) if output_g is not None else output_h)
-
+            print("in xlnetModel_dialog.forward(), before layer_module")
             outputs = layer_module(
                 output_h,
                 output_g,
@@ -1148,7 +1168,9 @@ class XLNetModel_dialog(XLNetPreTrainedModel_dialog):
                 target_mapping=target_mapping,
                 head_mask=head_mask[i],
                 output_attentions=output_attentions,
+                conceptnet_score=conceptnet_score,
             )
+            print("in xlnetModel_dialog.forward(), after layer_module")
             output_h, output_g = outputs[:2]
             if output_attentions:
                 attentions.append(outputs[2])

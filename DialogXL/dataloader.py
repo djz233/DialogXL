@@ -6,6 +6,7 @@ import os
 import argparse
 import numpy as np
 from  transformers import BertTokenizer, TransfoXLTokenizer, XLNetTokenizer
+from conceptnet import conceptnet_to_dict
 
 def get_train_valid_sampler(trainset):
     size = len(trainset)
@@ -70,13 +71,15 @@ def get_IEMOCAP_loaders_transfo_xl(dataset_name = 'IEMOCAP', batch_size=32, num_
 
 def get_IEMOCAP_loaders_xlnet(dataset_name = 'IEMOCAP', batch_size=32, num_workers=0, pin_memory=False, args = None):
     tokenizer = XLNetTokenizer.from_pretrained( args.bert_tokenizer_dir)
-    print('building vocab.. ')
+    #print('building vocab.. ')
     speaker_vocab, label_vocab, person_vec = load_vocab(dataset_name)
     train_data, dev_data, test_data = read_datas(dataset_name, batch_size)
     print('building datasets..')
-    trainsets = [IEMOCAPDataset_xlnet(d,  speaker_vocab, label_vocab, args, tokenizer) for d in train_data]
-    devsets = [IEMOCAPDataset_xlnet(d, speaker_vocab, label_vocab, args, tokenizer) for d in dev_data]
-    testsets = [IEMOCAPDataset_xlnet(d, speaker_vocab, label_vocab, args, tokenizer) for d in test_data]
+    net_dict = conceptnet_to_dict(args.concept_net_dir)
+    cached_dict = {}
+    trainsets = [IEMOCAPDataset_xlnet(d,  speaker_vocab, label_vocab, args, tokenizer, net_dict, cached_dict,) for d in train_data]
+    devsets = [IEMOCAPDataset_xlnet(d, speaker_vocab, label_vocab, args, tokenizer, net_dict, cached_dict,) for d in dev_data]
+    testsets = [IEMOCAPDataset_xlnet(d, speaker_vocab, label_vocab, args, tokenizer, net_dict, cached_dict,) for d in test_data]
 
     return trainsets, devsets, testsets, speaker_vocab, label_vocab, person_vec
 

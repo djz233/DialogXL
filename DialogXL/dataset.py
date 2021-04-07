@@ -1,3 +1,4 @@
+
 import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
@@ -124,15 +125,15 @@ class IEMOCAPDataset_transfo_xl(Dataset):
 
 class IEMOCAPDataset_xlnet(Dataset):
 
-    def __init__(self, data, speaker_vocab=None, label_vocab=None, args = None, tokenizer = None):
+    def __init__(self, data, speaker_vocab=None, label_vocab=None, args = None, tokenizer = None, net_dict = None, cached_dict = None,):
         self.speaker_vocab = speaker_vocab
         self.label_vocab = label_vocab
         self.args = args
-        self.content_ids, self.labels, self.content_mask, self.content_lengths, self.speaker_ids, self.ids = self.process(data, tokenizer)
+        self.content_ids, self.labels, self.content_mask, self.content_lengths, self.speaker_ids, self.ids, self.conceptnet_score = self.process(data, tokenizer, net_dict, cached_dict,)
 
         self.len = len(self.content_ids)
 
-    def process(self, data, tokenizer):
+    def process(self, data, tokenizer, net_dict, cached_dict,):
         '''
         :param data:
             list of dialogues
@@ -209,11 +210,11 @@ class IEMOCAPDataset_xlnet(Dataset):
             _r, _w = word_segment_map(content[i])
             word_map_list.append(_w)
             ret_sent_list.append(_r)
-
+        conceptnet_score = cal_reliability_tensor(word_map_list, ret_sent_list, content_lengths, net_dict, cached_dict, self.args.mem_len, content) #to be done, delete content
         #mmm(content[0], ret_sent_list, word_map_list)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
 
-        return content_ids, labels, content_mask, content_lengths, speaker_ids, indecies
+        return content_ids, labels, content_mask, content_lengths, speaker_ids, indecies, conceptnet_score
 
     def __getitem__(self, index):
         '''
@@ -229,7 +230,8 @@ class IEMOCAPDataset_xlnet(Dataset):
                torch.FloatTensor(self.content_mask[index]), \
                torch.LongTensor(self.content_lengths[index]),\
                torch.FloatTensor(self.speaker_ids[index]),\
-               self.ids[index]
+               self.ids[index],\
+               torch.FloatTensor(self.conceptnet_score[index])
 
     def __len__(self):
         return self.len
