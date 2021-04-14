@@ -33,7 +33,7 @@ def cal_path_reliability(net_dict, cached_dict, key, init_resource = 1, step = 2
     flag_set = set() #bfs'flags
     if not allow_loop: flag_set.add(key) 
     if key not in cached_dict: cached_dict[key] = {}
-    init_step = step
+    cached_dict[key][key] = init_resource
     query = set([key])
     bfs_next = set()
     while step: 
@@ -47,7 +47,7 @@ def cal_path_reliability(net_dict, cached_dict, key, init_resource = 1, step = 2
                     distr += paths
                     next_step.add(word)
 
-            resource = init_resource if step == init_step else cached_dict[key][q]
+            resource = cached_dict[key][q]
             distrib_res = resource / distr if distr else 0
 
             for word in next_step:
@@ -92,7 +92,6 @@ def point2point_reliability(net_dict, cached_dict, query_text, key_text, query_m
                 kg_score[i] = kg_score[flag]
             except(IndexError):
                 print(i, flag, kg_score.shape)
-                import pdb; pdb.set_trace()
             i += 1 
     kg_score1 = np.concatenate((np.zeros((kg_score.shape[0], 1)), kg_score), 1)
     kg_score2 = np.concatenate((np.zeros((1, kg_score1.shape[1])), kg_score1), 0)
@@ -194,7 +193,7 @@ def cal_reliability_tensor(word_map_list, ret_sent_list, content_lengths, net_di
         reliability_tensor.append(torch.tensor(tensor_for_timestep, dtype=torch.float32))     
         #print("nn",torch.tensor(tensor_for_timestep  ).size()    ) 
     #print("end, ", torch.tensor(reliability_tensor).size()) 
-    #import pdb; pdb.set_trace() 
+     
     return reliability_tensor
 
 #for debugging
@@ -209,16 +208,10 @@ if __name__ == "__main__":
     cad = {}
     csv_path = "conceptnet-5.7.0-rel.csv"
     #dic = conceptnet_to_dict(csv_path)
-    dic = {}
-    print("build finish")
-    word_list =  ['▁Are', '▁your', '▁parents', '▁excited', '▁or', '.', ',', '!', '?']
-    map_list = [0, 0, 0, 1, 2, 3, 4, 5, 6, 7]
-    a, b = word_segment_map([word_list])
-    print(a, b)
-    #matr = point2point_reliability(dic, cad, word_list, word_list, map_list, map_list, allow_loop=True)
-    #print(matr)
-    import pdb; pdb.set_trace()
-    #print(cad)
+    dic = {'how':{'are':1,'you':1},'are':{'you':1}}
+    cal_path_reliability(dic, cad, 'how')
+
+    print(cad)
     #print(di
 '''
 词语分配给自己的权重过小：用对角矩阵初始化？
