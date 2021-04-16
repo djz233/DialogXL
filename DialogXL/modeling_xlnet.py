@@ -273,7 +273,6 @@ class XLNetRelativeAttention(nn.Module):
         output_attentions=False,
         conceptnet_score=None,
     ):
-        print("Getting into XLNetRelativeAttention.rel_attn_core()")
         """Core relative positional attention operations."""
         # q_head (qlen, B, H, d_h)
         # k_head_h (klen, B, H, d_h)
@@ -295,7 +294,7 @@ class XLNetRelativeAttention(nn.Module):
 
         # merge attention scores and perform masking
         attn_score = (ac + bd + ef) * self.scale # (B, H, qlen, klen)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         if conceptnet_score is not None:
             conceptnet_score = torch.unsqueeze(conceptnet_score, 1)
             conceptnet_score = conceptnet_score.expand(conceptnet_score.size()[0], self.n_head, conceptnet_score.size()[2], conceptnet_score.size()[3])
@@ -355,7 +354,6 @@ class XLNetRelativeAttention(nn.Module):
         output_attentions=False,
         conceptnet_score=None,
     ):  
-        print("getting ito XLNetRelativeAttention.forward()")
         #import pdb; pdb.set_trace()
         if g is not None:
             # Two-stream attention with relative positional encoding.
@@ -532,8 +530,6 @@ class XLNetLayer(nn.Module):
         output_attentions=False,
         conceptnet_score=None,
     ):
-        #import pdb; pdb.set_trace()
-        print("in xlnetLayer.forward(), before rel_attn.forward()")
         outputs = self.rel_attn(
             output_h,
             output_g,
@@ -548,7 +544,6 @@ class XLNetLayer(nn.Module):
             conceptnet_score=conceptnet_score
         )
         output_h, output_g = outputs[:2]
-        print("in xlnetLayer.forward(), after rel_attn.forward()")
         if output_g is not None:
             output_g = self.ff(output_g)
         output_h = self.ff(output_h)
