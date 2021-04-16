@@ -210,10 +210,10 @@ class IEMOCAPDataset_xlnet(Dataset):
             _r, _w = word_segment_map(content[i])
             word_map_list.append(_w)
             ret_sent_list.append(_r)
-        conceptnet_score = cal_reliability_tensor(word_map_list, ret_sent_list, content_lengths, net_dict, cached_dict, self.args.mem_len, content) #to be done, delete content
+        conceptnet_score = cal_reliability_tensor(word_map_list, ret_sent_list, content_lengths, net_dict, cached_dict, self.args.mem_len, self.args.max_sent_len, content) #to be done, delete content
         #mmm(content[0], ret_sent_list, word_map_list)
         #import pdb; pdb.set_trace()
-
+        print("test,", len(net_dict), len(cached_dict))
         return content_ids, labels, content_mask, content_lengths, speaker_ids, indecies, conceptnet_score
 
     def __getitem__(self, index):
